@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Streamlit application for visualizing Jira data to support scaled agile practices. The app tracks Program Increment (PI) commitments, ART (Agile Release Train) performance, and scrum team metrics using custom Jira fields and labels.
+A Streamlit application for visualizing JIRA Server data to support scaled agile practices. The app tracks Program Increment (PI) commitments, ART (Agile Release Train) performance, and scrum team metrics using custom Jira fields and labels.
+
+**Target Platform**: JIRA Server 9.12 with REST API v2 and PAT authentication
 
 ## Development Commands
 
@@ -51,8 +53,9 @@ Features must have labels in format: `PI-X_ART_NAME` (e.g., `PI-1_Reporting`, `P
 ## Key Implementation Patterns
 
 ### Authentication Flow
-- User provides Jira server URL, email, and PAT via sidebar
-- `JiraClient` handles connection testing and session management
+- User provides JIRA Server URL and PAT via sidebar
+- `JiraClient` uses Bearer token authentication for Server v2 API
+- Connection testing validates PAT before data retrieval
 - Credentials stored in Streamlit session state (not persisted)
 
 ### Data Retrieval Strategy
@@ -68,6 +71,7 @@ Features must have labels in format: `PI-X_ART_NAME` (e.g., `PI-1_Reporting`, `P
 ## Security Considerations
 
 - PAT tokens handled via environment variables and session state only
+- Bearer token authentication (no email required)
 - No credential persistence or logging
-- Jira connection tested before data retrieval
+- JIRA Server connection tested before data retrieval
 - Error handling prevents credential exposure in stack traces

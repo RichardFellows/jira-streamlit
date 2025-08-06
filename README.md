@@ -19,7 +19,7 @@ A Streamlit application for visualizing Jira data to track scaled agile practice
 2. **Configure Environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your Jira details
+   # Edit .env with your Jira Server URL and PAT
    ```
 
 3. **Run the Application**
@@ -43,13 +43,20 @@ The application uses the following custom fields from your Jira instance:
 
 ## Usage
 
-1. **Authentication**: Enter your Jira server URL, email, and Personal Access Token in the sidebar
+1. **Authentication**: Enter your JIRA Server URL and Personal Access Token in the sidebar
 2. **Select PI**: Choose a Program Increment to analyze
 3. **View Metrics**: Navigate between tabs to see different views:
    - PI Overview: High-level progress by ART
    - PI Analytics: Detailed performance metrics and health indicators
    - Feature Details: Individual feature and story tracking
    - Scrum Metrics: Team-level velocity and cycle time analysis
+
+## JIRA Server Authentication
+
+This application is configured for **JIRA Server 9.12** with:
+- REST API v2
+- Personal Access Token (PAT) authentication
+- Bearer token authorization (no email required)
 
 ## Architecture
 
@@ -64,4 +71,5 @@ The application uses the following custom fields from your Jira instance:
 
 - Personal Access Tokens are handled securely through environment variables
 - No credentials are stored in the application code
+- Bearer token authentication for JIRA Server
 - Connection testing validates authentication before proceeding

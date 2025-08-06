@@ -30,38 +30,34 @@ def authenticate_jira():
     server_url = st.sidebar.text_input(
         "Jira Server URL",
         value=os.getenv("JIRA_SERVER_URL", ""),
-        placeholder="https://your-company.atlassian.net"
-    )
-    
-    email = st.sidebar.text_input(
-        "Email",
-        value=os.getenv("JIRA_EMAIL", ""),
-        placeholder="your-email@company.com"
+        placeholder="https://your-jira-server.com"
     )
     
     api_token = st.sidebar.text_input(
         "Personal Access Token",
         value=os.getenv("JIRA_API_TOKEN", ""),
         type="password",
-        placeholder="Your Jira PAT"
+        placeholder="Your Jira Server PAT"
     )
     
+    st.sidebar.caption("💡 For JIRA Server 9.12 with PAT authentication")
+    
     if st.sidebar.button("Connect to Jira"):
-        if server_url and email and api_token:
+        if server_url and api_token:
             try:
-                config = JiraConfig(server=server_url, email=email, token=api_token)
+                config = JiraConfig(server=server_url, token=api_token)
                 client = JiraClient(config)
                 
                 if client.test_connection():
                     st.session_state.jira_client = client
                     st.session_state.connected = True
-                    st.sidebar.success("✅ Connected to Jira!")
+                    st.sidebar.success("✅ Connected to Jira Server!")
                 else:
-                    st.sidebar.error("❌ Failed to connect to Jira")
+                    st.sidebar.error("❌ Failed to connect to Jira Server")
             except Exception as e:
                 st.sidebar.error(f"❌ Connection error: {str(e)}")
         else:
-            st.sidebar.error("Please fill in all fields")
+            st.sidebar.error("Please provide server URL and PAT")
     
     return st.session_state.connected
 

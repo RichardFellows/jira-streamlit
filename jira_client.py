@@ -8,7 +8,6 @@ import streamlit as st
 @dataclass
 class JiraConfig:
     server: str
-    email: str
     token: str
 
 class JiraClient:
@@ -19,9 +18,14 @@ class JiraClient:
     
     def _connect(self):
         try:
+            # For JIRA Server 9.12 with PAT authentication
+            options = {
+                'server': self.config.server,
+                'rest_api_version': '2'
+            }
             self.jira = JIRA(
-                server=self.config.server,
-                basic_auth=(self.config.email, self.config.token)
+                options=options,
+                token_auth=self.config.token
             )
         except Exception as e:
             st.error(f"Failed to connect to Jira: {str(e)}")
