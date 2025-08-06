@@ -1,0 +1,6 @@
+sprint=customfield_11701
+story_points=customfield_10003
+feature_link=customfield_11702
+business_benefit=customfield_11800
+last_comment=customfield_21600
+workstream=customfield_20403
