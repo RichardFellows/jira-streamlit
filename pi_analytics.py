@@ -5,11 +5,17 @@ from plotly.subplots import make_subplots
 import streamlit as st
 from typing import Dict, List, Tuple
 from datetime import datetime, timedelta
+from logger_config import setup_logger, log_function_call
+
+# Set up logger for this module
+logger = setup_logger('pi_analytics')
 
 class PIAnalytics:
     def __init__(self, jira_client):
         self.jira_client = jira_client
+        logger.info("PIAnalytics initialized")
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def get_pi_objectives_data(self, pi_label: str) -> Dict:
         features_df = self.jira_client.get_features_by_pi(pi_label)
         
@@ -199,6 +205,7 @@ class PIAnalytics:
         return pd.DataFrame(performance_data)
 
 def display_pi_analytics_dashboard(jira_client, pi_label: str):
+    logger.info(f"Displaying PI analytics dashboard for: {pi_label}")
     st.header(f"🎯 PI Analytics Dashboard - {pi_label}")
     
     pi_analytics = PIAnalytics(jira_client)

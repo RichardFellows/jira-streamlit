@@ -4,6 +4,10 @@ from jira import JIRA
 import pandas as pd
 from dataclasses import dataclass
 import streamlit as st
+from logger_config import setup_logger, log_function_call, log_user_action
+
+# Set up logger for this module
+logger = setup_logger('jira_client')
 
 @dataclass
 class JiraConfig:
@@ -14,10 +18,12 @@ class JiraClient:
     def __init__(self, config: JiraConfig):
         self.config = config
         self.jira = None
+        logger.info(f"Initializing JiraClient for server: {config.server}")
         self._connect()
     
     def _connect(self):
         try:
+            logger.info(f"Connecting to JIRA Server: {self.config.server}")
             # For JIRA Server 9.12 with PAT authentication
             options = {
                 'server': self.config.server,
@@ -27,20 +33,28 @@ class JiraClient:
                 options=options,
                 token_auth=self.config.token
             )
+            logger.info("JIRA connection established successfully")
         except Exception as e:
+            logger.error(f"Failed to connect to JIRA: {str(e)}", exc_info=True)
             st.error(f"Failed to connect to Jira: {str(e)}")
             raise
     
+    @log_function_call(logger, log_result=True)
     def test_connection(self) -> bool:
         try:
-            self.jira.current_user()
+            user = self.jira.current_user()
+            logger.info(f"Connection test successful - User: {user}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Connection test failed: {str(e)}")
             return False
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def get_features_by_pi(self, pi_label: str) -> pd.DataFrame:
         jql = f'issueType = "Feature" AND labels = "{pi_label}"'
+        logger.info(f"Executing JQL query: {jql}")
         issues = self.jira.search_issues(jql, expand='changelog', maxResults=1000)
+        logger.info(f"Found {len(issues)} features for PI: {pi_label}")
         
         features_data = []
         for issue in issues:
@@ -60,9 +74,12 @@ class JiraClient:
         
         return pd.DataFrame(features_data)
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def get_stories_for_feature(self, feature_key: str) -> pd.DataFrame:
         jql = f'customfield_11702 = "{feature_key}" OR "Epic Link" = "{feature_key}"'
+        logger.info(f"Executing JQL query for feature stories: {jql}")
         issues = self.jira.search_issues(jql, expand='changelog', maxResults=1000)
+        logger.info(f"Found {len(issues)} stories for feature: {feature_key}")
         
         stories_data = []
         for issue in issues:
@@ -71,7 +88,7 @@ class JiraClient:
                 'summary': issue.fields.summary,
                 'status': issue.fields.status.name,
                 'story_points': getattr(issue.fields, 'customfield_10003', 0) or 0,
-                'workstream': getattr(issue.fields, 'customfield_20403', 'Unknown'),
+                'workstream': self._get_workstream_safe(issue),
                 'sprint': getattr(issue.fields, 'customfield_11701', None),
                 'feature_link': getattr(issue.fields, 'customfield_11702', feature_key),
                 'assignee': issue.fields.assignee.displayName if issue.fields.assignee else 'Unassigned',
@@ -81,18 +98,52 @@ class JiraClient:
         
         return pd.DataFrame(stories_data)
     
+    def _get_workstream_safe(self, issue) -> str:
+        """Safely extract workstream, handling missing field gracefully."""
+        try:
+            workstream = getattr(issue.fields, 'customfield_20403', None)
+            if workstream and workstream.strip():
+                return workstream.strip()
+            else:
+                return 'Unknown'
+        except Exception as e:
+            logger.warning(f"Error extracting workstream from issue {issue.key}: {e}")
+            return 'Unknown'
+    
+    @log_function_call(logger, log_result=True)
     def get_all_workstreams(self) -> List[str]:
-        jql = 'customfield_20403 is not EMPTY'
-        issues = self.jira.search_issues(jql, maxResults=1000)
+        # First try to get issues with workstream field populated
+        try:
+            jql_with_workstream = 'customfield_20403 is not EMPTY'
+            logger.info(f"Querying for workstreams with JQL: {jql_with_workstream}")
+            issues = self.jira.search_issues(jql_with_workstream, maxResults=1000)
+            logger.info(f"Found {len(issues)} issues with workstream field populated")
+        except Exception as e:
+            logger.warning(f"Query for workstream field failed: {e}, falling back to broader search")
+            # Fallback: get all issues and extract workstreams client-side
+            jql_fallback = 'project is not EMPTY'
+            issues = self.jira.search_issues(jql_fallback, maxResults=1000)
+            logger.info(f"Fallback query returned {len(issues)} issues")
         
         workstreams = set()
-        for issue in issues:
-            workstream = getattr(issue.fields, 'customfield_20403', None)
-            if workstream:
-                workstreams.add(workstream)
+        unknown_count = 0
         
-        return sorted(list(workstreams))
+        for issue in issues:
+            workstream = self._get_workstream_safe(issue)
+            workstreams.add(workstream)
+            if workstream == 'Unknown':
+                unknown_count += 1
+        
+        logger.info(f"Extracted workstreams: {len(workstreams)} unique values, {unknown_count} unknown")
+        
+        # Sort but put 'Unknown' at the end
+        sorted_workstreams = sorted([w for w in workstreams if w != 'Unknown'])
+        if 'Unknown' in workstreams:
+            sorted_workstreams.append('Unknown')
+        
+        return sorted_workstreams
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def get_pi_metrics(self, pi_label: str, workstream: Optional[str] = None) -> Dict:
         features_df = self.get_features_by_pi(pi_label)
         
@@ -106,6 +157,12 @@ class JiraClient:
         
         for _, feature in features_df.iterrows():
             stories_df = self.get_stories_for_feature(feature['key'])
+            
+            # Log workstream field coverage
+            if not stories_df.empty:
+                unknown_count = len(stories_df[stories_df['workstream'] == 'Unknown'])
+                if unknown_count > 0:
+                    logger.info(f"Feature {feature['key']}: {unknown_count}/{len(stories_df)} stories have unknown workstream")
             
             if workstream:
                 stories_df = stories_df[stories_df['workstream'] == workstream]
@@ -146,6 +203,7 @@ class JiraClient:
                     return parts[0]
         return None
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def get_available_pis(self, pi_labels: List[str] = None) -> List[str]:
         # If specific PI labels are provided, check which ones exist in JIRA
         if pi_labels:

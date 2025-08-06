@@ -5,14 +5,33 @@ from plotly.subplots import make_subplots
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import streamlit as st
+from logger_config import setup_logger, log_function_call
+
+# Set up logger for this module
+logger = setup_logger('scrum_metrics')
 
 class ScrumMetricsCalculator:
     def __init__(self, jira_client):
         self.jira_client = jira_client
+        logger.info("ScrumMetricsCalculator initialized")
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def calculate_team_velocity(self, workstream: str, num_sprints: int = 5) -> List[Dict]:
-        jql = f'customfield_20403 = "{workstream}" AND sprint is not EMPTY'
-        issues = self.jira_client.jira.search_issues(jql, maxResults=1000)
+        # Handle 'Unknown' workstream specially
+        if workstream == 'Unknown':
+            # For unknown workstream, get issues without the field or with null/empty values
+            jql = '(customfield_20403 is EMPTY OR customfield_20403 is null) AND sprint is not EMPTY'
+            logger.info(f"Querying for Unknown workstream with JQL: {jql}")
+        else:
+            jql = f'customfield_20403 = "{workstream}" AND sprint is not EMPTY'
+            logger.info(f"Querying for workstream '{workstream}' with JQL: {jql}")
+        
+        try:
+            issues = self.jira_client.jira.search_issues(jql, maxResults=1000)
+            logger.info(f"Found {len(issues)} issues for workstream analysis")
+        except Exception as e:
+            logger.error(f"Failed to query workstream data: {e}")
+            return []
         
         sprint_data = {}
         for issue in issues:
@@ -48,9 +67,22 @@ class ScrumMetricsCalculator:
         
         return velocity_data
     
+    @log_function_call(logger, log_args=True, log_result=True)
     def calculate_cycle_time(self, workstream: str) -> pd.DataFrame:
-        jql = f'customfield_20403 = "{workstream}" AND status = "Done"'
-        issues = self.jira_client.jira.search_issues(jql, expand='changelog', maxResults=500)
+        # Handle 'Unknown' workstream specially
+        if workstream == 'Unknown':
+            jql = '(customfield_20403 is EMPTY OR customfield_20403 is null) AND status = "Done"'
+            logger.info(f"Querying cycle time for Unknown workstream with JQL: {jql}")
+        else:
+            jql = f'customfield_20403 = "{workstream}" AND status = "Done"'
+            logger.info(f"Querying cycle time for workstream '{workstream}' with JQL: {jql}")
+        
+        try:
+            issues = self.jira_client.jira.search_issues(jql, expand='changelog', maxResults=500)
+            logger.info(f"Found {len(issues)} completed issues for cycle time analysis")
+        except Exception as e:
+            logger.error(f"Failed to query cycle time data: {e}")
+            return pd.DataFrame()
         
         cycle_times = []
         for issue in issues:
@@ -78,8 +110,20 @@ class ScrumMetricsCalculator:
         return pd.DataFrame(cycle_times)
     
     def create_burndown_chart(self, workstream: str, sprint: str) -> go.Figure:
-        jql = f'customfield_20403 = "{workstream}" AND sprint = "{sprint}"'
-        issues = self.jira_client.jira.search_issues(jql, expand='changelog', maxResults=500)
+        # Handle 'Unknown' workstream specially
+        if workstream == 'Unknown':
+            jql = f'(customfield_20403 is EMPTY OR customfield_20403 is null) AND sprint = "{sprint}"'
+            logger.info(f"Querying burndown for Unknown workstream, sprint '{sprint}' with JQL: {jql}")
+        else:
+            jql = f'customfield_20403 = "{workstream}" AND sprint = "{sprint}"'
+            logger.info(f"Querying burndown for workstream '{workstream}', sprint '{sprint}' with JQL: {jql}")
+        
+        try:
+            issues = self.jira_client.jira.search_issues(jql, expand='changelog', maxResults=500)
+            logger.info(f"Found {len(issues)} issues for burndown analysis")
+        except Exception as e:
+            logger.error(f"Failed to query burndown data: {e}")
+            return go.Figure().add_annotation(text=f"Error loading data: {str(e)}", x=0.5, y=0.5)
         
         total_points = sum([getattr(issue.fields, 'customfield_story_points', 0) or 0 for issue in issues])
         
@@ -209,6 +253,7 @@ class ScrumMetricsCalculator:
         return fig
 
 def display_scrum_metrics_enhanced(jira_client, workstream: str):
+    logger.info(f"Displaying enhanced scrum metrics for workstream: {workstream}")
     st.subheader(f"📈 Scrum Metrics for {workstream}")
     
     metrics_calculator = ScrumMetricsCalculator(jira_client)

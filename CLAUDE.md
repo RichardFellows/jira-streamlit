@@ -73,6 +73,28 @@ Features must have labels in format: `PI-X_ART_NAME` (e.g., `PI-3_Reporting`, `P
 - Plotly figures created through specialized modules
 - Charts support filtering by ART, workstream, and time ranges
 
+## Logging and Monitoring
+
+The application includes comprehensive logging configured via `logger_config.py`:
+
+**Log Categories:**
+- User actions (authentication, navigation, selections)
+- JIRA API calls (JQL queries, response times, result counts)
+- Performance monitoring (slow operations >2s)
+- Error tracking (connection failures, API errors)
+- Session management (anonymized session IDs)
+
+**Configuration:**
+- Log level via `LOG_LEVEL` environment variable (DEBUG/INFO/WARNING/ERROR)
+- Optional file logging via `LOG_FILE` environment variable
+- Sensitive data automatically redacted (tokens, passwords)
+- Function-level decorators for consistent logging
+
+**Performance Monitoring:**
+- All JIRA API calls timed and logged
+- Slow operations flagged with warnings
+- Data volume metrics (number of features, stories, etc.)
+
 ## Security Considerations
 
 - PAT tokens handled via environment variables and session state only
@@ -80,3 +102,5 @@ Features must have labels in format: `PI-X_ART_NAME` (e.g., `PI-3_Reporting`, `P
 - No credential persistence or logging
 - JIRA Server connection tested before data retrieval
 - Error handling prevents credential exposure in stack traces
+- Sensitive data redacted from logs (tokens, passwords)
+- Session tracking uses anonymized IDs for privacy

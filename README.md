@@ -19,7 +19,7 @@ A Streamlit application for visualizing Jira data to track scaled agile practice
 2. **Configure Environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your Jira Server URL, PAT, and PI labels
+   # Edit .env with your Jira Server URL, PAT, PI labels, and logging settings
    ```
 
 3. **Run the Application**
@@ -61,6 +61,37 @@ This application is configured for **JIRA Server 9.12** with:
 - Personal Access Token (PAT) authentication
 - Bearer token authorization (no email required)
 
+## Logging and Monitoring
+
+The application includes comprehensive logging for monitoring user activity:
+
+### Log Levels
+- **DEBUG**: Detailed debugging information
+- **INFO**: General application flow and user actions
+- **WARNING**: Slow operations and potential issues
+- **ERROR**: Errors and exceptions with stack traces
+
+### What Gets Logged
+- **User Actions**: Authentication, tab navigation, PI/workstream selections
+- **JIRA API Calls**: JQL queries, response times, data volumes
+- **Performance**: Slow operations (>2 seconds) with timing
+- **Errors**: Connection failures, API errors, validation issues
+- **Session Management**: User session tracking with anonymized IDs
+
+### Configuration
+```bash
+# Environment variables for logging
+LOG_LEVEL=INFO                           # DEBUG, INFO, WARNING, ERROR
+LOG_FILE=/var/log/jira-streamlit/app.log # Optional file logging
+```
+
+### Example Log Output
+```
+2024-01-15 14:30:15 - app - INFO - authenticate_jira:67 - USER_ACTION [a1b2c3d4] CONNECT_SUCCESS - server=https://jira.company.com
+2024-01-15 14:30:20 - jira_client - INFO - get_features_by_pi:55 - Executing JQL query: issueType = "Feature" AND labels = "PI-3_Reporting"
+2024-01-15 14:30:21 - jira_client - INFO - get_features_by_pi:57 - Found 12 features for PI: PI-3_Reporting
+```
+
 ## Architecture
 
 - `app.py`: Main Streamlit application
@@ -76,3 +107,5 @@ This application is configured for **JIRA Server 9.12** with:
 - No credentials are stored in the application code
 - Bearer token authentication for JIRA Server
 - Connection testing validates authentication before proceeding
+- Sensitive data redacted from logs (tokens, passwords)
+- Session tracking uses anonymized IDs

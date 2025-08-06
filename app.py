@@ -8,6 +8,10 @@ from scrum_metrics import display_scrum_metrics_enhanced
 from pi_analytics import display_pi_analytics_dashboard
 import os
 from dotenv import load_dotenv
+from logger_config import setup_logger, log_user_action, get_session_id
+
+# Set up logger for the main app
+logger = setup_logger('app')
 
 load_dotenv()
 
@@ -19,14 +23,19 @@ st.set_page_config(
 )
 
 def init_session_state():
+    session_id = get_session_id()
+    logger.info(f"Initializing session state for session: {session_id}")
+    
     if 'jira_client' not in st.session_state:
         st.session_state.jira_client = None
     if 'connected' not in st.session_state:
         st.session_state.connected = False
     if 'pi_labels' not in st.session_state:
         st.session_state.pi_labels = ["PI-3_Reporting", "PI-4_Reporting", "PI-5_Reporting"]
+        logger.info(f"Default PI labels set: {st.session_state.pi_labels}")
 
 def authenticate_jira():
+    logger.info("Rendering authentication sidebar")
     st.sidebar.header("🔐 Jira Authentication")
     
     server_url = st.sidebar.text_input(
@@ -62,11 +71,16 @@ def authenticate_jira():
     if pi_labels_text:
         new_labels = [label.strip() for label in pi_labels_text.strip().split('\n') if label.strip()]
         if new_labels != st.session_state.pi_labels:
+            logger.info(f"PI labels updated from {st.session_state.pi_labels} to {new_labels}")
             st.session_state.pi_labels = new_labels
+            log_user_action(logger, "PI_LABELS_UPDATED", labels=new_labels)
     
     if st.sidebar.button("Connect to Jira"):
+        log_user_action(logger, "CONNECT_ATTEMPT", server=server_url[:50] if server_url else None)
+        
         if server_url and api_token:
             try:
+                logger.info(f"Attempting JIRA connection to: {server_url}")
                 config = JiraConfig(server=server_url, token=api_token)
                 client = JiraClient(config)
                 
@@ -74,16 +88,21 @@ def authenticate_jira():
                     st.session_state.jira_client = client
                     st.session_state.connected = True
                     st.sidebar.success("✅ Connected to Jira Server!")
+                    log_user_action(logger, "CONNECT_SUCCESS", server=server_url)
                 else:
                     st.sidebar.error("❌ Failed to connect to Jira Server")
+                    log_user_action(logger, "CONNECT_FAILED", server=server_url, reason="test_connection_failed")
             except Exception as e:
                 st.sidebar.error(f"❌ Connection error: {str(e)}")
+                log_user_action(logger, "CONNECT_ERROR", server=server_url, error=str(e))
         else:
             st.sidebar.error("Please provide server URL and PAT")
+            log_user_action(logger, "CONNECT_VALIDATION_ERROR", missing_fields="server_url or token")
     
     return st.session_state.connected
 
 def display_pi_overview():
+    logger.info("Displaying PI Overview tab")
     st.header("📋 Program Increment Overview")
     
     if not st.session_state.jira_client:
@@ -97,6 +116,9 @@ def display_pi_overview():
         return
     
     selected_pi = st.selectbox("Select PI", available_pis)
+    
+    if selected_pi:
+        log_user_action(logger, "PI_SELECTED", pi=selected_pi, tab="overview")
     
     col1, col2 = st.columns([1, 1])
     
@@ -158,6 +180,7 @@ def display_pi_overview():
                 )
 
 def display_feature_details():
+    logger.info("Displaying Feature Details tab")
     st.header("🎯 Feature Details")
     
     if not st.session_state.jira_client:
@@ -171,6 +194,9 @@ def display_feature_details():
         return
     
     selected_pi = st.selectbox("Select PI", available_pis, key="feature_pi")
+    
+    if selected_pi:
+        log_user_action(logger, "PI_SELECTED", pi=selected_pi, tab="features")
     
     features_df = st.session_state.jira_client.get_features_by_pi(selected_pi)
     
@@ -213,6 +239,7 @@ def display_feature_details():
                 st.plotly_chart(fig, use_container_width=True)
 
 def display_scrum_metrics():
+    logger.info("Displaying Scrum Metrics tab")
     st.header("🏃‍♂️ Scrum Team Metrics")
     
     if not st.session_state.jira_client:
@@ -228,9 +255,17 @@ def display_scrum_metrics():
     selected_workstream = st.selectbox("Select Workstream", workstreams)
     
     if selected_workstream:
+        log_user_action(logger, "WORKSTREAM_SELECTED", workstream=selected_workstream)
+    
+    if selected_workstream:
+        # Add info message for 'Unknown' workstream
+        if selected_workstream == 'Unknown':
+            st.info("📝 **Note:** 'Unknown' workstream includes issues without the workstream field (typically older issues created before this field was introduced).")
+        
         display_scrum_metrics_enhanced(st.session_state.jira_client, selected_workstream)
 
 def main():
+    logger.info("Starting main application")
     init_session_state()
     
     st.title("📊 Scaled Agile Analytics Dashboard")
@@ -243,21 +278,26 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(["PI Overview", "PI Analytics", "Feature Details", "Scrum Metrics"])
     
     with tab1:
+        log_user_action(logger, "TAB_ACCESSED", tab="pi_overview")
         display_pi_overview()
     
     with tab2:
+        log_user_action(logger, "TAB_ACCESSED", tab="pi_analytics")
         available_pis = st.session_state.jira_client.get_available_pis(st.session_state.pi_labels)
         if available_pis:
             selected_pi = st.selectbox("Select PI for Analytics", available_pis, key="analytics_pi")
             if selected_pi:
+                log_user_action(logger, "PI_SELECTED", pi=selected_pi, tab="analytics")
                 display_pi_analytics_dashboard(st.session_state.jira_client, selected_pi)
         else:
             st.warning("No PI labels found")
     
     with tab3:
+        log_user_action(logger, "TAB_ACCESSED", tab="feature_details")
         display_feature_details()
     
     with tab4:
+        log_user_action(logger, "TAB_ACCESSED", tab="scrum_metrics")
         display_scrum_metrics()
 
 if __name__ == "__main__":
