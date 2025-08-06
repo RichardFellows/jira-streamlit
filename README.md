@@ -19,7 +19,7 @@ A Streamlit application for visualizing Jira data to track scaled agile practice
 2. **Configure Environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your Jira Server URL and PAT
+   # Edit .env with your Jira Server URL, PAT, and PI labels
    ```
 
 3. **Run the Application**
@@ -39,13 +39,16 @@ The application uses the following custom fields from your Jira instance:
 
 ### Issue Types and Labels
 - **Feature**: Issue type for high-level features
-- **PI Labels**: Format `PI-X_ART_NAME` (e.g., `PI-1_Reporting`, `PI-2_Grading`)
+- **PI Labels**: Format `PI-X_ART_NAME` (e.g., `PI-3_Reporting`, `PI-4_Reporting`, `PI-5_Reporting`)
+- **Configurable**: PI labels can be customized in the sidebar or via environment variables
 
 ## Usage
 
 1. **Authentication**: Enter your JIRA Server URL and Personal Access Token in the sidebar
-2. **Select PI**: Choose a Program Increment to analyze
-3. **View Metrics**: Navigate between tabs to see different views:
+2. **Configure PI Labels**: Set up your PI labels (defaults to PI-3_Reporting, PI-4_Reporting, PI-5_Reporting)
+3. **Connect**: Click "Connect to Jira" to establish connection
+4. **Select PI**: Choose a Program Increment to analyze from your configured labels
+5. **View Metrics**: Navigate between tabs to see different views:
    - PI Overview: High-level progress by ART
    - PI Analytics: Detailed performance metrics and health indicators
    - Feature Details: Individual feature and story tracking

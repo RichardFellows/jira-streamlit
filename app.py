@@ -23,6 +23,8 @@ def init_session_state():
         st.session_state.jira_client = None
     if 'connected' not in st.session_state:
         st.session_state.connected = False
+    if 'pi_labels' not in st.session_state:
+        st.session_state.pi_labels = ["PI-3_Reporting", "PI-4_Reporting", "PI-5_Reporting"]
 
 def authenticate_jira():
     st.sidebar.header("🔐 Jira Authentication")
@@ -41,6 +43,26 @@ def authenticate_jira():
     )
     
     st.sidebar.caption("💡 For JIRA Server 9.12 with PAT authentication")
+    
+    # PI Labels Configuration
+    st.sidebar.header("⚙️ PI Configuration")
+    
+    # Get default from environment or use hardcoded defaults
+    default_labels = os.getenv("PI_LABELS", "PI-3_Reporting,PI-4_Reporting,PI-5_Reporting").split(",")
+    default_labels = [label.strip() for label in default_labels]
+    
+    pi_labels_text = st.sidebar.text_area(
+        "PI Labels (one per line)",
+        value="\n".join(st.session_state.pi_labels if st.session_state.pi_labels else default_labels),
+        height=100,
+        help="Enter PI labels that exist in your JIRA (e.g., PI-3_Reporting)"
+    )
+    
+    # Update session state when labels change
+    if pi_labels_text:
+        new_labels = [label.strip() for label in pi_labels_text.strip().split('\n') if label.strip()]
+        if new_labels != st.session_state.pi_labels:
+            st.session_state.pi_labels = new_labels
     
     if st.sidebar.button("Connect to Jira"):
         if server_url and api_token:
@@ -68,7 +90,7 @@ def display_pi_overview():
         st.warning("Please connect to Jira first")
         return
     
-    available_pis = st.session_state.jira_client.get_available_pis()
+    available_pis = st.session_state.jira_client.get_available_pis(st.session_state.pi_labels)
     
     if not available_pis:
         st.warning("No PI labels found in Jira")
@@ -142,7 +164,7 @@ def display_feature_details():
         st.warning("Please connect to Jira first")
         return
     
-    available_pis = st.session_state.jira_client.get_available_pis()
+    available_pis = st.session_state.jira_client.get_available_pis(st.session_state.pi_labels)
     
     if not available_pis:
         st.warning("No PI labels found")
@@ -224,7 +246,7 @@ def main():
         display_pi_overview()
     
     with tab2:
-        available_pis = st.session_state.jira_client.get_available_pis()
+        available_pis = st.session_state.jira_client.get_available_pis(st.session_state.pi_labels)
         if available_pis:
             selected_pi = st.selectbox("Select PI for Analytics", available_pis, key="analytics_pi")
             if selected_pi:

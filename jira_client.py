@@ -146,14 +146,41 @@ class JiraClient:
                     return parts[0]
         return None
     
-    def get_available_pis(self) -> List[str]:
-        jql = 'issueType = "Feature" AND labels ~ "PI-*"'
+    def get_available_pis(self, pi_labels: List[str] = None) -> List[str]:
+        # If specific PI labels are provided, check which ones exist in JIRA
+        if pi_labels:
+            # Build JQL to search for specific labels
+            label_conditions = ' OR '.join([f'labels = "{label}"' for label in pi_labels])
+            jql = f'issueType = "Feature" AND ({label_conditions})'
+            
+            try:
+                issues = self.jira.search_issues(jql, maxResults=1000)
+                found_pis = set()
+                for issue in issues:
+                    if issue.fields.labels:
+                        for label in issue.fields.labels:
+                            if label in pi_labels:
+                                found_pis.add(label)
+                return sorted(list(found_pis))
+            except Exception:
+                # Fallback to client-side filtering if JQL fails
+                pass
+        
+        # Fallback: Get all Features and filter client-side
+        jql = 'issueType = "Feature"'
         issues = self.jira.search_issues(jql, maxResults=1000)
         
         pis = set()
         for issue in issues:
-            for label in issue.fields.labels:
-                if label.startswith('PI-'):
-                    pis.add(label)
+            if issue.fields.labels:
+                for label in issue.fields.labels:
+                    # If specific labels provided, only include those
+                    if pi_labels:
+                        if label in pi_labels:
+                            pis.add(label)
+                    else:
+                        # Otherwise include any label starting with PI-
+                        if label.startswith('PI-'):
+                            pis.add(label)
         
         return sorted(list(pis))

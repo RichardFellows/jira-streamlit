@@ -48,7 +48,12 @@ The application uses these Jira custom fields:
 - `customfield_11702`: Story-to-feature relationship
 
 ### PI Label Format
-Features must have labels in format: `PI-X_ART_NAME` (e.g., `PI-1_Reporting`, `PI-2_Grading`)
+Features must have labels in format: `PI-X_ART_NAME` (e.g., `PI-3_Reporting`, `PI-4_Reporting`, `PI-5_Reporting`)
+
+**User Configuration**: PI labels are configurable via:
+- Sidebar text area in the application
+- Environment variable `PI_LABELS` (comma-separated)
+- Defaults to: `PI-3_Reporting,PI-4_Reporting,PI-5_Reporting`
 
 ## Key Implementation Patterns
 
